@@ -41,17 +41,19 @@ export async function signUp(params: SignUpParams) {
     await db.collection("users").doc(uid).set({
       name,
       email,
+      // profileURL,
+      // resumeURL,
     });
 
     return {
       success: true,
       message: "Account created successfully. Please sign in.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating user:", error);
 
     // Handle Firebase specific errors
-    if (error.code === "auth/email-already-exists") {
+    if ((error as { code: string }).code === "auth/email-already-exists") {
       return {
         success: false,
         message: "This email is already in use",
@@ -77,14 +79,9 @@ export async function signIn(params: SignInParams) {
       };
 
     await setSessionCookie(idToken);
-    // Missing return statement here!
-    return {
-      success: true,
-      message: "Signed in successfully."
-    };
-  } catch (error: any) {
+  } catch {
     console.log("");
-    
+
     return {
       success: false,
       message: "Failed to log into account. Please try again.",
@@ -102,15 +99,12 @@ export async function signOut() {
 // Get current user from session cookie
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
+
   const sessionCookie = cookieStore.get("session")?.value;
-  
-  console.log("Session cookie exists:", !!sessionCookie);
-  
   if (!sessionCookie) return null;
 
   try {
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-    console.log("Session verified successfully:", decodedClaims.uid);
 
     // get user info from db
     const userRecord = await db
@@ -135,17 +129,4 @@ export async function getCurrentUser(): Promise<User | null> {
 export async function isAuthenticated() {
   const user = await getCurrentUser();
   return !!user;
-}
-
-export async function getInterviewById(userId: string): Promise<Interview | null> {
-  const interview = await db
-    .collection("interviews")
-    .where('userId', '==', userId)
-    .orderBy('createdAt', 'desc')
-    .get();
-
-  return interview.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }))[0] as Interview | null;
 }
